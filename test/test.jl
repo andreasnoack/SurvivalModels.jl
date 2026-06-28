@@ -1178,3 +1178,20 @@ end
     @test all(isapprox.(predict_survival(PHMethod(), base, X, X, [0.0], [0.0], 5.0), ccdf(base, 5.0)))
     @test size(predict_expected(PHMethod(), base, X, X, [0.0], β, [1.0, 5.0, 10.0])) == (n, 3)
 end
+
+@testitem "Cox fit statistics (loglikelihood/aic/bic)" begin
+    using RDatasets, DataFrames
+    using SurvivalModels: loss
+
+    ovarian = dataset("survival", "ovarian")
+    m = fit(Cox, @formula(Surv(FUTime, FUStat) ~ Age + ECOG_PS), ovarian)
+
+    # Cox partial log-likelihood is -loss; dof = #coefficients (semi-parametric,
+    # no baseline params); nobs = #subjects.
+    @test loglikelihood(m) ≈ -loss(m.β, m.M)
+    @test dof(m) == 2
+    @test nobs(m) == nrow(ovarian)
+    @test aic(m)  ≈ -2 * loglikelihood(m) + 2 * dof(m)
+    @test bic(m)  ≈ -2 * loglikelihood(m) + dof(m) * log(nobs(m))
+    @test aicc(m) ≈ aic(m) + 2 * dof(m) * (dof(m) + 1) / (nobs(m) - dof(m) - 1)
+end
